@@ -43,6 +43,16 @@ docker build -t soccer-data-api .
 docker run -p 8000:8000 soccer-data-api
 ```
 
+Or with Compose (builds on first run, includes a `/health` healthcheck and
+`restart: unless-stopped`):
+
+```bash
+docker compose up --build
+```
+
+`docker compose up` builds the image only if it doesn't exist yet; pass
+`--build` to rebuild after code changes.
+
 ### Smoke test (container)
 
 Same commands as above, since the container is published on the same
