@@ -10,3 +10,13 @@ dependencies = [
     "statsbombpy>=1.22.0",
     "uvicorn[standard]>=0.52.4",
 ]
+
+[dependency-groups]
+dev = ["ruff>=0.14.0"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
