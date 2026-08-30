@@ -84,37 +84,44 @@ def _fetch_or_502(label: str, fetch: "Callable[[], pd.DataFrame]") -> pd.DataFra
 
 
 @lru_cache(maxsize=128)
-def _cached_fbref_schedule(league: str, season: str, _ttl: int) -> pd.DataFrame:
-    """Fetch the FBref season schedule for a league/season, cached by TTL.
+def _cached_understat_schedule(league: str, season: str, _ttl: int) -> pd.DataFrame:
+    """Fetch the Understat season schedule for a league/season, cached by TTL.
+
+    Understat replaces FBref here because FBref now requires driving a real
+    browser (to clear Cloudflare), which is too heavy/flaky for this service.
+    Understat is a plain HTTP source but only covers the big-five European
+    leagues.
 
     Args:
-        league (str): League identifier as expected by soccerdata.
+        league (str): League identifier as expected by soccerdata (one of the
+            big-five leagues, e.g. "ENG-Premier League").
         season (str): Season identifier as expected by soccerdata.
         _ttl (int): Cache-bucket value from `_ttl_hash()`; not otherwise
             used, it just forces a fresh call once the window rolls over.
 
     Returns:
-        pd.DataFrame: Raw schedule data from FBref.
+        pd.DataFrame: Raw schedule data from Understat.
     """
-    return sd.FBref(league, season).read_schedule()
+    return sd.Understat(league, season).read_schedule()
 
 
 @lru_cache(maxsize=128)
-def _cached_fbref_player_season_stats(
-    league: str, season: str, stat_type: str, _ttl: int
+def _cached_understat_player_season_stats(
+    league: str, season: str, _ttl: int
 ) -> pd.DataFrame:
-    """Fetch FBref player season stats for a league/season, cached by TTL.
+    """Fetch Understat player season stats for a league/season, cached by TTL.
 
     Args:
-        league (str): League identifier as expected by soccerdata.
+        league (str): League identifier as expected by soccerdata (one of the
+            big-five leagues, e.g. "ENG-Premier League").
         season (str): Season identifier as expected by soccerdata.
-        stat_type (str): FBref stat category, e.g. "standard", "shooting".
         _ttl (int): Cache-bucket value from `_ttl_hash()`.
 
     Returns:
-        pd.DataFrame: Raw player season stats from FBref.
+        pd.DataFrame: Raw player season stats from Understat (goals, xG,
+            assists, xA, shots, key passes, xGChain, xGBuildup, etc.).
     """
-    return sd.FBref(league, season).read_player_season_stats(stat_type=stat_type)
+    return sd.Understat(league, season).read_player_season_stats()
 
 
 @lru_cache(maxsize=128)
@@ -163,13 +170,14 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/fbref/schedule")
-def fbref_schedule(league: str, season: str) -> list[dict[str, Any]]:
-    """Fetch the season schedule/results for a league from FBref.
+@app.get("/understat/schedule")
+def understat_schedule(league: str, season: str) -> list[dict[str, Any]]:
+    """Fetch the season schedule/results for a league from Understat.
 
     Args:
-        league (str): League identifier as expected by soccerdata (e.g.
-            "ENG-Premier League").
+        league (str): League identifier as expected by soccerdata. Understat
+            only covers the big-five European leagues: "ENG-Premier League",
+            "ESP-La Liga", "ITA-Serie A", "GER-Bundesliga", "FRA-Ligue 1".
         season (str): Season identifier as expected by soccerdata (e.g.
             "2023-2024" or "2324").
 
@@ -178,41 +186,36 @@ def fbref_schedule(league: str, season: str) -> list[dict[str, Any]]:
 
     Raises:
         HTTPException: 422 for an unrecognized league/season, 502 if the
-            FBref scrape otherwise fails.
+            Understat fetch otherwise fails.
     """
     df = _fetch_or_502(
-        "FBref schedule lookup",
-        lambda: _cached_fbref_schedule(league, season, _ttl_hash()),
+        "Understat schedule lookup",
+        lambda: _cached_understat_schedule(league, season, _ttl_hash()),
     )
     return _records(df)
 
 
-@app.get("/fbref/player-season-stats")
-def fbref_player_season_stats(
-    league: str, season: str, stat_type: str = "standard"
-) -> list[dict[str, Any]]:
-    """Fetch player season stats (goals, assists, minutes, etc.) from FBref.
+@app.get("/understat/player-season-stats")
+def understat_player_season_stats(league: str, season: str) -> list[dict[str, Any]]:
+    """Fetch player season stats (goals, xG, assists, xA, etc.) from Understat.
 
     Args:
-        league (str): League identifier as expected by soccerdata (e.g.
-            "ENG-Premier League").
+        league (str): League identifier as expected by soccerdata. Understat
+            only covers the big-five European leagues: "ENG-Premier League",
+            "ESP-La Liga", "ITA-Serie A", "GER-Bundesliga", "FRA-Ligue 1".
         season (str): Season identifier as expected by soccerdata (e.g.
             "2023-2024" or "2324").
-        stat_type (str): FBref stat category, e.g. "standard", "shooting",
-            "passing". Defaults to "standard".
 
     Returns:
         list[dict[str, Any]]: One record per player.
 
     Raises:
-        HTTPException: 422 for an unrecognized league/season/stat_type, 502
-            if the FBref scrape otherwise fails.
+        HTTPException: 422 for an unrecognized league/season, 502 if the
+            Understat fetch otherwise fails.
     """
     df = _fetch_or_502(
-        "FBref player season stats lookup",
-        lambda: _cached_fbref_player_season_stats(
-            league, season, stat_type, _ttl_hash()
-        ),
+        "Understat player season stats lookup",
+        lambda: _cached_understat_player_season_stats(league, season, _ttl_hash()),
     )
     return _records(df)
 
