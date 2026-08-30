@@ -15,6 +15,12 @@ COPY main.py ./
 
 RUN uv sync --frozen --no-dev
 
+# Bake the native TLS client library into the image. soccerdata's Understat
+# scraper uses wrapper-tls-requests, which downloads a ~4MB tls-client .so from
+# GitHub on first use. Fetching it at build time keeps container startup quiet
+# and removes a runtime dependency on GitHub being reachable.
+RUN uv run --no-sync python -c "from tls_requests.models.libraries import TLSLibrary; TLSLibrary.load()"
+
 EXPOSE 8000
 
 # Bind to 0.0.0.0 so the container's port mapping actually works.
