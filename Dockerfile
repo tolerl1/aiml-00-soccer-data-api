@@ -18,4 +18,6 @@ RUN uv sync --frozen --no-dev
 EXPOSE 8000
 
 # Bind to 0.0.0.0 so the container's port mapping actually works.
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --no-sync: the environment is already built above; without it `uv run`
+# re-syncs at startup and reinstalls the dev group (ruff), undoing --no-dev.
+CMD ["uv", "run", "--no-sync", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
